@@ -86,23 +86,23 @@ def filter_by_equipment(df, equipment_list):
     mask = df.apply(equipment_ok, axis=1)
     return df[mask].reset_index(drop=True)
 
-def filter_by_injury(df, injury_zones):
-    """
-    Exclude exercises that target or use injured areas.
-    injury_zones: list of body part strings.
-    """
-    if 'Target Muscle Group ' not in df.columns and 'Prime Mover Muscle' not in df.columns:
-        return df
-    inj = [x.lower() for x in injury_zones]
-    def not_injured(row):
-        target = str(row.get('Target Muscle Group ','')).lower()
-        prime = str(row.get('Prime Mover Muscle','')).lower()
-        for zone in inj:
-            if zone and (zone in target or zone in prime):
-                return False
-        return True
-    mask = df.apply(not_injured, axis=1)
-    return df[mask].reset_index(drop=True)
+# def filter_by_injury(df, injury_zones):
+#     """
+#     Exclude exercises that target or use injured areas.
+#     injury_zones: list of body part strings.
+#     """
+#     if 'Target Muscle Group ' not in df.columns and 'Prime Mover Muscle' not in df.columns:
+#         return df
+#     inj = [x.lower() for x in injury_zones]
+#     def not_injured(row):
+#         target = str(row.get('Target Muscle Group ','')).lower()
+#         prime = str(row.get('Prime Mover Muscle','')).lower()
+#         for zone in inj:
+#             if zone and (zone in target or zone in prime):
+#                 return False
+#         return True
+#     mask = df.apply(not_injured, axis=1)
+#     return df[mask].reset_index(drop=True)
 
 def filter_by_program(df, goal):
     """
@@ -115,11 +115,9 @@ def filter_by_program(df, goal):
     goal = goal.lower()
     goal_map = {
         'muscle gain': 'hypertrophy',
-        'weight gain': 'hypertrophy',
         'strength': 'strength',
         'endurance': 'conditioning',
-        'weight loss': 'conditioning',
-        'conditioning': 'conditioning'
+        'fatloss': 'conditioning',
     }
     prog_type = goal_map.get(goal, None)
     if prog_type:
@@ -127,29 +125,32 @@ def filter_by_program(df, goal):
         return df[mask].reset_index(drop=True)
     return df
 
-def generate_plan_split(fitness_level, availability):
+def generate_plan_split_simple(availability):
     """
-    Determine workout split based on fitness level and available days.
+    Create workout splits based only on the number of available days:
+    - 3 days or fewer: Full Body workouts each day
+    - 4 days: Upper/Lower split alternating
+    - 5 or more days: Push/Pull/Legs cycle repeated
+    
     Returns a dict like {'Day 1': ['Full Body'], 'Day 2': ['Full Body'], ...}
     """
-    level = fitness_level.lower()
     days = int(availability)
     plan = {}
 
-    if level == 'beginner':
-        # Full body workouts, typically 3 days per week
-        days = min(days, 3)
+    if days <= 3:
+        # Full Body workouts for all days
         for i in range(days):
             plan[f"Day {i + 1}"] = ['Full Body']
-    elif level == 'intermediate':
-        # Upper/lower split: alternate U, L
+    elif days == 4:
+        # Upper/Lower split alternating
+        split = ['Upper Body', 'Lower Body']
         for i in range(days):
-            plan[f"Day {i + 1}"] = ['Upper Body'] if i % 2 == 0 else ['Lower Body']
+            plan[f"Day {i + 1}"] = [split[i % 2]]
     else:
-        # Advanced: Push/Pull/Legs split (3-day cycle)
+        # Push/Pull/Legs split cycling
         cycle = ['Push', 'Pull', 'Legs']
         for i in range(days):
-            plan[f"Day {i + 1}"] = [cycle[i % len(cycle)]]
+            plan[f"Day {i + 1}"] = [cycle[i % 3]]
 
     return plan
 
@@ -350,7 +351,7 @@ def main(data):
     filtered = primary_classification(filtered, data.goal)
 
     # # Generate workout split plan
-    split_plan = generate_plan_split(data.fitness_level, data.availability)
+    split_plan = generate_plan_split_simple(data.availability)
     print("Split plan:",split_plan)
 
     # # Assemble final workout plan
