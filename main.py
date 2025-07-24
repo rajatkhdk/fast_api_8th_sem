@@ -1,35 +1,10 @@
-# from fastapi import FastAPI, Request
-# from pydantic import BaseModel
-# from typing import List
-
-# app = FastAPI()
-
-# # Example Pydantic model for request
-# class WorkoutRequest(BaseModel):
-#     age: int
-#     height: float
-#     weight: float
-#     goal: str
-#     equipment: List[str]
-
-# # Example endpoint
-# @app.post("/generate-workout")
-# def generate_workout(data: WorkoutRequest):
-#     # Your logic here
-#     bmi = data.weight / ((data.height / 100) ** 2)
-#     plan = {
-#         "goal": data.goal,
-#         "bmi": round(bmi, 2),
-#         "recommended": "HIIT" if data.goal.lower() == "fat loss" else "Strength Training"
-#     }
-#     return plan
-
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
 from workout_generator import generate_plan
 from workout_planner import main
+from nutrient import get_macros_from_user_input
 import json
 import joblib
 import numpy as np
@@ -116,3 +91,26 @@ def workout_generation(data: WorkoutRequest):
     result = main(data)
     workout_plan = json.loads(result)
     return JSONResponse(content=workout_plan)
+
+# ========== Input Schema ==========
+class NutritionRequest(BaseModel):
+    fitness_level: str
+    goal: str
+    activity_level: str
+    age: int
+    gender: str
+    height: float
+    weight: float
+
+# ========== Endpoint ==========
+@app.post("/nutrition_plan")
+def generate_nutrition_plan(data: NutritionRequest):
+    print("Received Request:", data)
+
+    # Convert Pydantic object to plain dict
+    input_data = data.dict()
+
+    # Call the nutrient calculator function
+    result = get_macros_from_user_input(input_data)
+
+    return JSONResponse(content=result)
