@@ -12,12 +12,11 @@ import pandas as pd
 
 app = FastAPI()
 
-# Load model
+# Load model components
 scaler = joblib.load("calorie_burned/scaler.pkl")
 poly = joblib.load("calorie_burned/poly.pkl")
 model = joblib.load("calorie_burned/lasso_model.pkl")
 
-# Define input schema
 class CalorieInput(BaseModel):
     Gender: str
     Age: int
@@ -30,36 +29,58 @@ class CalorieInput(BaseModel):
 def encode_gender(gender: str) -> int:
     return 0 if gender.lower() == "male" else 1
 
+def predict_for_duration(data_dict):
+    """Helper function to predict calories for a given input dict"""
+    df = pd.DataFrame([data_dict])
+    scaled = scaler.transform(df)
+    poly_feat = poly.transform(scaled)
+    pred = model.predict(poly_feat)[0]
+    return pred
+
 @app.post("/predict_calories")
 def predict_calories(data: CalorieInput):
-    # Convert gender
     gender_encoded = encode_gender(data.Gender)
-    print(gender_encoded)
 
-    # Define the actual user input as a DataFrame
-    user_input = pd.DataFrame([{
-    'Gender': gender_encoded,        # Will be encoded
-    'Age': data.Age,
-    'Height': data.Height,
-    'Weight': data.Weight,
-    'Duration': data.Duration,
-    'Heart_Rate': data.Heart_Rate,
-    'Body_Temp': data.Body_Temp,
-}])
+    # Max chunk size (minutes)
+    MAX_DURATION = 60
 
-    # # Feature order should match training data!
-    # features = np.array([[gender_encoded, data.age, data.bmi, data.duration, data.heart_rate, data.body_temp]])
+    # Total duration in minutes
+    total_duration = data.Duration
 
-    # Scale features using the same scaler
-    user_scaled = scaler.transform(user_input)
-    user_scaled_poly = poly.fit_transform(user_scaled)
+    # Number of full chunks + remainder
+    full_chunks = int(total_duration // MAX_DURATION)
+    remainder = total_duration % MAX_DURATION
 
-    # Predict calories burned
-    predicted_calories = model.predict(user_scaled_poly)[0]
+    calories_total = 0.0
 
+    # Predict calories for each full chunk
+    for _ in range(full_chunks):
+        input_chunk = {
+            'Gender': gender_encoded,
+            'Age': data.Age,
+            'Height': data.Height,
+            'Weight': data.Weight,
+            'Duration': MAX_DURATION,
+            'Heart_Rate': data.Heart_Rate,
+            'Body_Temp': data.Body_Temp
+        }
+        calories_total += predict_for_duration(input_chunk)
+
+    # Predict calories for remainder duration if any
+    if remainder > 0:
+        input_remainder = {
+            'Gender': gender_encoded,
+            'Age': data.Age,
+            'Height': data.Height,
+            'Weight': data.Weight,
+            'Duration': remainder,
+            'Heart_Rate': data.Heart_Rate,
+            'Body_Temp': data.Body_Temp
+        }
+        calories_total += predict_for_duration(input_remainder)
 
     return {
-        "predicted_calories": predicted_calories
+        "predicted_calories": round(calories_total, 2)
     }
 
 # ========== Input Schema ==========
