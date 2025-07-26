@@ -14,15 +14,11 @@ import Logout from "./scenes/logout/Logout";
 function App() {
   const [theme, colorMode] = useMode();
   const [isSidebar, setIsSidebar] = useState(true);
-
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Check if user info exists in localStorage to set logged in state
     const userId = localStorage.getItem("userId");
-    if (userId) {
-      setIsLoggedIn(true);
-    }
+    setIsLoggedIn(!!userId); // ensures state reflects login status on refresh
   }, []);
 
   return (
@@ -35,38 +31,48 @@ function App() {
             {isLoggedIn && <Topbar />}
 
             <Routes>
-  {/* Public route */}
-  <Route
-    path="/login"
-    element={
-      isLoggedIn ? (
-        <Navigate to="/" replace />
-      ) : (
-        <LoginPage setIsLoggedIn={setIsLoggedIn} />
-      )
-    }
-  />
+              {/* Public Route */}
+              <Route
+                path="/login"
+                element={
+                  isLoggedIn ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <LoginPage setIsLoggedIn={setIsLoggedIn} />
+                  )
+                }
+              />
 
-  {/* Logout route */}
-  <Route
-    path="/logout"
-    element={<Logout setIsLoggedIn={setIsLoggedIn} />}
-  />
+              {/* Logout Route */}
+              <Route
+                path="/logout"
+                element={<Logout setIsLoggedIn={setIsLoggedIn} />}
+              />
 
-  {/* Protected routes */}
-  <Route
-    path="/"
-    element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" replace />}
-  />
-  <Route
-    path="/team"
-    element={isLoggedIn ? <Team /> : <Navigate to="/login" replace />}
-  />
-  <Route
-    path="/update/:id"
-    element={isLoggedIn ? <UpdateUserPage /> : <Navigate to="/login" replace />}
-  />
-</Routes>
+              {/* Protected Routes */}
+              <Route
+                path="/"
+                element={
+                  isLoggedIn ? <Dashboard /> : <Navigate to="/login" replace />
+                }
+              />
+              <Route
+                path="/team"
+                element={
+                  isLoggedIn ? <Team /> : <Navigate to="/login" replace />
+                }
+              />
+              <Route
+                path="/update/:id"
+                element={
+                  isLoggedIn ? (
+                    <UpdateUserPage />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+            </Routes>
           </main>
         </div>
       </ThemeProvider>
